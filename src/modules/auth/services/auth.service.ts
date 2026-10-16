@@ -1,8 +1,8 @@
+import { CacheService } from '@/common/cache/services/cache.service';
 import { UserEntity } from '@/common/database/entities/user.entity';
 import { ERROR_CODE } from '@/common/filters/error-code';
 import {
   BadRequestException,
-  ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@/common/filters/exception';
@@ -17,19 +17,16 @@ import { ConfigService } from '@nestjs/config';
 import {
   ForgotPasswordDto,
   LoginDto,
-  RefreshDto,
   ResetPasswordDto,
   SignupDto,
   UserOauthDto,
 } from '../dtos/request';
-import {
-  AuthRefreshResponseDto,
-  LoginResponseDto,
-  OauthResponseDto,
-} from '../dtos/response';
-import { EAuthProvider, ETOKEN_TYPE } from '../enums';
+import { AuthRefreshResponseDto, LoginResponseDto } from '../dtos/response';
+import { EAuthProvider } from '../enums';
 import { IAuthService } from '../interfaces/auth.service.interface';
 import { AuthMailService } from './auth.mail.service';
+
+const FORGOT_PASSWORD_KEY = 'forgot_password:';
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -42,50 +39,38 @@ export class AuthService implements IAuthService {
     private readonly authMailService: AuthMailService,
     private readonly configService: ConfigService,
     private readonly tokenService: TokenService,
+    private readonly cacheService: CacheService,
   ) {
     this.frontendUrl = this.configService.getOrThrow('app.frontend');
   }
 
   public async login(
-    data: LoginDto,
+    input: LoginDto,
   ): Promise<ApiResponseDto<LoginResponseDto>> {
-    const user = await this.validateUser(data.identifier, data.password);
+    const user = await this.validateUser(input.identifier, input.password);
+
     const tokens = await this.helperEncryptionService.createJwtTokens({
-      role: user.role,
       userId: user.id,
+      role: user.role,
+      tv: user.tokenVersion,
     });
 
-    await this.userRepository.upsertUserRefreshToken(
-      user.id,
-      tokens.refreshToken,
-    );
     return ApiResponseDto.success(tokens);
   }
 
   public async signup(payload: SignupDto): Promise<ApiGenericResponseDto> {
-    try {
-      const { email, password } = payload;
-      const user = await this.userRepository.findByEmail(email);
-      if (user) {
-        throw new BadRequestException(ERROR_CODE.ALREADY_EXISTS);
-      }
-      const hashPassword =
-        await this.helperEncryptionService.createHash(password);
+    await this.validateUser(payload.email, payload.password);
 
-      await this.userRepository.create({
-        ...payload,
-        password: hashPassword,
-      });
+    const hashPassword = await this.helperEncryptionService.createHash(
+      payload.password,
+    );
+    await this.userRepository.create({ ...payload, password: hashPassword });
 
-      return ApiGenericResponseDto.success('register success');
-    } catch (error) {
-      this.logger.error('Error during signup', error);
-      throw new BadRequestException(`${error.message}`);
-    }
+    return ApiGenericResponseDto.success('Register success');
   }
 
   public async logout(payload: IAuthUser): Promise<ApiGenericResponseDto> {
-    await this.userRepository.upsertUserRefreshToken(payload.userId, null);
+    await this.userRepository.incrementTokenVersion(payload.userId);
     return ApiGenericResponseDto.success();
   }
 
@@ -98,13 +83,9 @@ export class AuthService implements IAuthService {
       throw new NotFoundException(ERROR_CODE.NOT_FOUND);
     }
     const token = generateCode(32);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
-    await this.tokenService.create({
-      userId: user.id,
-      value: token,
-      type: ETOKEN_TYPE.FORGOT_PASSWORD,
-      expiresAt,
-    });
+    const ttl = 10 * 60 * 1000;
+    await this.cacheService.set(FORGOT_PASSWORD_KEY + token, user.id, ttl);
+
     await this.authMailService.forgotPasswordMail(user, token);
     return ApiGenericResponseDto.success();
   }
@@ -114,84 +95,42 @@ export class AuthService implements IAuthService {
   ): Promise<ApiGenericResponseDto> {
     const { token, password } = payload;
 
-    const tokenEntity = await this.tokenService.verify({
-      token,
-      type: ETOKEN_TYPE.FORGOT_PASSWORD,
-    });
+    const userId = await this.cacheService.get<number>(
+      FORGOT_PASSWORD_KEY + token,
+    );
+
+    if (!userId) {
+      throw new UnauthorizedException(ERROR_CODE.TOKEN_INVALID);
+    }
 
     const passwordHash =
       await this.helperEncryptionService.createHash(password);
 
-    await this.userRepository.update(tokenEntity.userId, {
+    await this.userRepository.update(userId, {
       password: passwordHash,
     });
 
-    await this.tokenService.revoke(tokenEntity.id);
+    await this.cacheService.del(FORGOT_PASSWORD_KEY + token);
+
     return ApiGenericResponseDto.success('Reset password success');
   }
 
   public async refreshTokens(
     authUser: IAuthUser,
-    payload: RefreshDto,
-  ): Promise<AuthRefreshResponseDto> {
+  ): Promise<ApiResponseDto<AuthRefreshResponseDto>> {
     const user = await this.userRepository.findById(authUser.userId);
 
-    if (!user || !user.refreshToken) {
-      throw new ForbiddenException(ERROR_CODE.FORBIDDEN);
+    if (!user || user.tokenVersion !== authUser.tv) {
+      throw new UnauthorizedException(ERROR_CODE.TOKEN_INVALID);
     }
 
-    const isMatch = user.refreshToken === payload.refreshToken;
+    const tokens = await this.helperEncryptionService.createJwtTokens({
+      userId: user.id,
+      role: user.role,
+      tv: user.tokenVersion,
+    });
 
-    if (!isMatch) {
-      throw new UnauthorizedException(ERROR_CODE.INVALID_CREDENTIALS);
-    }
-
-    const tokenPayload: IAuthUser = {
-      userId: authUser.userId,
-      role: authUser.role,
-    };
-
-    const tokens =
-      await this.helperEncryptionService.createJwtTokens(tokenPayload);
-
-    await this.userRepository.upsertUserRefreshToken(
-      user.id,
-      tokens.refreshToken,
-    );
-
-    return tokens;
-  }
-
-  public async verifyOAuthToken(
-    token: string,
-  ): Promise<ApiResponseDto<OauthResponseDto>> {
-    try {
-      const payload = await this.helperEncryptionService.verifyToken<{
-        userId: number;
-      }>(token);
-
-      const user = await this.userRepository.findById(payload.userId);
-
-      if (!user) {
-        throw new NotFoundException(ERROR_CODE.NOT_FOUND);
-      }
-
-      const tokens = await this.helperEncryptionService.createJwtTokens({
-        userId: user.id,
-        role: user.role,
-      });
-
-      await this.userRepository.upsertUserRefreshToken(
-        user.id,
-        tokens.refreshToken,
-      );
-
-      return ApiResponseDto.success(tokens);
-    } catch (error) {
-      this.logger.error(error);
-      if (error instanceof NotFoundException) throw error;
-      throw new BadRequestException(ERROR_CODE.TOKEN_INVALID);
-    }
+    return ApiResponseDto.success(tokens);
   }
 
   public async validateOAuthLogin(payload: UserOauthDto): Promise<string> {

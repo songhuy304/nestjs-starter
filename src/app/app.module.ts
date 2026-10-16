@@ -5,7 +5,6 @@ import { CommonModule } from '@/common/common.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { WebsocketModule } from '@/modules/websocket/websocket.module';
 import { NotificationModule } from '@/modules/notifications/notification.module';
-import { WorkflowModule } from '@/modules/workflows/workflow.module';
 
 @Module({
   imports: [
@@ -14,7 +13,6 @@ import { WorkflowModule } from '@/modules/workflows/workflow.module';
     AuthModule,
     WebsocketModule,
     NotificationModule,
-    WorkflowModule,
   ],
   controllers: [HealthController],
 })

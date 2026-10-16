@@ -34,11 +34,7 @@ export class UserRepositoryImpl extends IUserRepository {
     });
   }
 
-  public async upsertUserRefreshToken(
-    userId: number,
-    refreshToken: string | null,
-  ) {
-    const hash = refreshToken ? refreshToken : null;
-    await this.repo.update(userId, { refreshToken: hash });
+  async incrementTokenVersion(userId: number): Promise<void> {
+    await this.repo.increment({ id: userId }, 'tokenVersion', 1);
   }
 }

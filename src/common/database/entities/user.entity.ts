@@ -30,8 +30,8 @@ export class UserEntity extends BaseEntity {
   @Column({ default: false })
   isVerified: boolean;
 
-  @Column({ nullable: true })
-  refreshToken: string;
+  @Column({ default: 0 })
+  tokenVersion: number;
 
   @Column({ nullable: true })
   avatar?: string;

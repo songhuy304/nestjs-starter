@@ -15,7 +15,6 @@ import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ForgotPasswordDto,
   LoginDto,
-  RefreshDto,
   ResetPasswordDto,
   SignupDto,
 } from '../dtos/request';
@@ -74,9 +73,8 @@ export class AuthPublicController {
   @UseGuards(JwtRefreshGuard)
   public refreshTokens(
     @AuthUser() user: IAuthUser,
-    @Body() payload: RefreshDto,
-  ): Promise<AuthRefreshResponseDto> {
-    return this.authService.refreshTokens(user, payload);
+  ): Promise<ApiResponseDto<AuthRefreshResponseDto>> {
+    return this.authService.refreshTokens(user);
   }
 
   @PublicRoute()
