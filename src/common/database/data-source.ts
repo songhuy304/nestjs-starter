@@ -6,7 +6,8 @@ dotenv.config();
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl:
+    process.env.APP_ENV === 'local' ? false : { rejectUnauthorized: false },
   entities: ['src/**/*.entity.ts'],
   migrations: [`${__dirname}/migrations/*{.ts,.js}`],
   logging: true,

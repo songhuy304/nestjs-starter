@@ -18,4 +18,5 @@ export interface IAuthService {
 
   logout(payload: IAuthUser): Promise<ApiGenericResponseDto>;
   validateOAuthLogin(payload: UserOauthDto): Promise<string>;
+  verifyOAuthToken(token: string): Promise<ApiResponseDto<LoginResponseDto>>;
 }

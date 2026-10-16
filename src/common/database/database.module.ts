@@ -16,7 +16,11 @@ import { ALL_ENTITIES } from './entities';
         entities: ALL_ENTITIES,
         autoLoadEntities: true,
         synchronize: false,
-        ssl: { rejectUnauthorized: false },
+        // Postgres local/Docker không có SSL; Supabase/cloud cần SSL
+        ssl:
+          process.env.APP_ENV === 'local'
+            ? false
+            : { rejectUnauthorized: false },
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: false,
         logging: ['error', 'warn'],

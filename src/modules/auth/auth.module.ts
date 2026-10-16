@@ -11,9 +11,10 @@ import { GoogleStrategy } from './providers/google.strategy';
 import { JwtRefreshStrategy } from './providers/refresh-jwt.strategy';
 import { AuthMailService } from './services/auth.mail.service';
 import { AuthService } from './services/auth.service';
+import { CacheModule } from '@/common/cache/cache.module';
 
 @Module({
-  imports: [HelperModule, UserModule, TokenModule, PassportModule],
+  imports: [HelperModule, UserModule, TokenModule, PassportModule, CacheModule],
   controllers: [AuthPublicController, OauthController],
   providers: [
     JwtAccessStrategy,

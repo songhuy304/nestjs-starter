@@ -10,7 +10,6 @@ import { NotificationEntity } from './notification.entity';
 import { TokenEntity } from './token.entity';
 import { ERole } from '../../guard/constants/role.constant';
 import { EAuthProvider } from '@/modules/auth/enums/provider.enum';
-import { WorkflowEntity } from './workflow.entity';
 
 @Entity('users')
 @Index(['email', 'provider'], { unique: true })
@@ -51,7 +50,4 @@ export class UserEntity extends BaseEntity {
 
   @OneToMany(() => NotificationEntity, (notification) => notification.user)
   notifications: NotificationEntity[];
-
-  @OneToMany(() => WorkflowEntity, (workflow) => workflow.createdBy)
-  workflows: WorkflowEntity[];
 }

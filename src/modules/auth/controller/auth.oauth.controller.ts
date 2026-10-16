@@ -1,4 +1,3 @@
-// oauth.controller.ts - thêm endpoint verify
 import {
   Body,
   Controller,
@@ -56,9 +55,4 @@ export class OauthController {
   async verifyOauth(@Body() body: VerifyOauthDto) {
     return this.authService.verifyOAuthToken(body.token);
   }
-
-  // private async buildRedirectUrl(user: UserOauthDto): Promise<string> {
-  //   const token = await this.authService.validateOAuthLogin(user);
-  //   return `${process.env.FRONTEND_URL}/verify?token=${token}`;
-  // }
 }

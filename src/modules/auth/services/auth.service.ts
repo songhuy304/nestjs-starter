@@ -152,6 +152,34 @@ export class AuthService implements IAuthService {
     return `${this.frontendUrl}/auth/verify?token=${token}`;
   }
 
+  public async verifyOAuthToken(
+    token: string,
+  ): Promise<ApiResponseDto<LoginResponseDto>> {
+    let payload: { userId: number };
+
+    try {
+      payload = await this.helperEncryptionService.verifyToken<{
+        userId: number;
+      }>(token);
+    } catch {
+      throw new UnauthorizedException(ERROR_CODE.TOKEN_INVALID);
+    }
+
+    const user = await this.userRepository.findById(payload.userId);
+
+    if (!user) {
+      throw new UnauthorizedException(ERROR_CODE.TOKEN_INVALID);
+    }
+
+    const tokens = await this.helperEncryptionService.createJwtTokens({
+      userId: user.id,
+      role: user.role,
+      tv: user.tokenVersion,
+    });
+
+    return ApiResponseDto.success(tokens);
+  }
+
   private async createOAuthUser(payload: UserOauthDto): Promise<UserEntity> {
     try {
       return await this.userRepository.create({
