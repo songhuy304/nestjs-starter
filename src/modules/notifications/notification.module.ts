@@ -2,7 +2,6 @@ import { NotificationEntity } from '@/common/database/entities';
 import { HelperModule } from '@/common/helper/helper.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { WebsocketModule } from '../websocket/websocket.module';
 import { NotificationSenderService } from './services/notification-sender.service';
 import { NotificationService } from './services/notification.service';
 import { NotificationRepositoryImpl } from './repositories/notification.repository';
@@ -11,6 +10,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { NOTIFICATION_QUEUE } from './constants/queue.constant';
 import { NotificationConsumer } from './consumers/notification.consumer';
 import { NotificationProducer } from './producers/notification.producer';
+import { NotificationGateway } from './gateways/notification.gateway';
 
 @Module({
   imports: [
@@ -19,7 +19,6 @@ import { NotificationProducer } from './producers/notification.producer';
       name: NOTIFICATION_QUEUE,
     }),
     HelperModule,
-    WebsocketModule,
   ],
   controllers: [NotificationController],
   providers: [
@@ -28,6 +27,7 @@ import { NotificationProducer } from './producers/notification.producer';
     NotificationService,
     NotificationRepositoryImpl,
     NotificationProducer,
+    NotificationGateway,
   ],
   exports: [
     NotificationSenderService,

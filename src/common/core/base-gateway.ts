@@ -18,8 +18,6 @@ export abstract class BaseGateway
   afterInit(server: Server) {
     server.use(async (socket, next) => {
       try {
-        // const token = socket.handshake.auth?.token;
-        // const token = socket.handshake.auth?.token;
         const token = socket.handshake.auth?.token;
 
         if (!token) {

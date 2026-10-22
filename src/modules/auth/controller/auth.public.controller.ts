@@ -65,7 +65,6 @@ export class AuthPublicController {
 
   @ApiOperation({
     summary: 'Refresh token',
-    description: 'The refresh token is read from the request body.',
   })
   @ApiCreatedResponse({ type: AuthRefreshResponseDto })
   @Post('refresh-token')

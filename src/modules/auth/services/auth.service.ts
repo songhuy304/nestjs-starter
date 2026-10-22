@@ -10,7 +10,6 @@ import { HelperEncryptionService } from '@/common/helper/services/helper.encrypt
 import { IAuthUser } from '@/common/request/interfaces';
 import { ApiGenericResponseDto, ApiResponseDto } from '@/common/response';
 import { generateCode } from '@/common/utils';
-import { TokenService } from '@/modules/token/services/token.service';
 import { UserRepositoryImpl } from '@/modules/users/repositories/user.repository';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -38,7 +37,6 @@ export class AuthService implements IAuthService {
     private readonly helperEncryptionService: HelperEncryptionService,
     private readonly authMailService: AuthMailService,
     private readonly configService: ConfigService,
-    private readonly tokenService: TokenService,
     private readonly cacheService: CacheService,
   ) {
     this.frontendUrl = this.configService.getOrThrow('app.frontend');
@@ -59,12 +57,24 @@ export class AuthService implements IAuthService {
   }
 
   public async signup(payload: SignupDto): Promise<ApiGenericResponseDto> {
-    await this.validateUser(payload.email, payload.password);
+    const existingUser = await this.userRepository.findByEmail(
+      payload.email,
+      EAuthProvider.LOCAL,
+    );
+
+    if (existingUser) {
+      throw new BadRequestException(ERROR_CODE.ALREADY_EXISTS);
+    }
 
     const hashPassword = await this.helperEncryptionService.createHash(
       payload.password,
     );
-    await this.userRepository.create({ ...payload, password: hashPassword });
+    await this.userRepository.create({
+      email: payload.email,
+      fullName: payload.fullName,
+      password: hashPassword,
+      provider: EAuthProvider.LOCAL,
+    });
 
     return ApiGenericResponseDto.success('Register success');
   }
