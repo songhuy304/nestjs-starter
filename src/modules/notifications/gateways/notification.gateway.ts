@@ -1,5 +1,4 @@
 import { BaseGateway } from '@/common/core/base-gateway';
-import { HelperEncryptionService } from '@/common/helper/services/helper.encryption.service';
 import { IAuthUser } from '@/common/request/interfaces';
 import { WebSocketGateway } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
@@ -14,8 +13,8 @@ export class NotificationGateway extends BaseGateway {
     return `user:${userId}`;
   }
 
-  constructor(jwt: HelperEncryptionService) {
-    super(jwt);
+  constructor() {
+    super();
   }
 
   handleConnection(client: Socket) {
